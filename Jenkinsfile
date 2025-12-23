@@ -2,35 +2,48 @@ pipeline {
     agent any
 
     environment {
-        VERCEL_TOKEN = credentials('vercel_token')
+        CONTAINER_NAME = "react-app"
+        IMAGE_NAME = "react-image"
+        EMAIL = "jatindixit304@gmail.com"
+        PORT = "5173"
     }
 
     stages {
-        stage('Install') {
-            steps {
-                dir('frontend') {
-                    bat 'npm install'
-                }
+        stage('Clone Repo'){
+            steps{
+                git branch: 'main', url: 'https://github.com/Jatindixit123/CI-CD.git'
             }
         }
-        stage('Test') {
+
+        stage('Build Docker Image') {
             steps {
-                echo 'Skipping tests - no test script found'
+                sh 'docker build -t $IMAGE_NAME .'
             }
         }
-        stage('Build') {
+        stage('Stop & Remove Previous Container') {
             steps {
-                dir('frontend') {
-                    bat 'npm run build'
-                }
+                sh '''
+                    docker stop $CONTAINER_NAME || true
+                    docker rm $CONTAINER_NAME || true
+                '''
             }
         }
-        stage('Deploy') {
+        stage('Docker Container Run') {
             steps {
-                dir('frontend') {
-                    bat 'npx vercel --prod --yes --token=%VERCEL_TOKEN%'
-                }
+                sh '''
+                    docker run -d -p ${PORT}:${PORT} --name $CONTAINER_NAME $IMAGE_NAME
+                '''
             }
         }
+        stage('Send Email Notification') {
+            steps {
+               emailext(
+                subject: "ReactJS App Deployed Successfully on EC2!",
+                body: "Your React JS app is Deployed! http://http://13.235.103.90.:${PORT}/",
+                to: "${EMAIL}"
+               )
+            }
+        }
+
     }
 }
